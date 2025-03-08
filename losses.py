@@ -12,7 +12,7 @@ def mse(y_real: npt.NDArray, y_pred: npt.NDArray) -> float:
     Returns:
         mse (float): The mean squared error
     """
-    mse = 0.5 * np.mean((y_pred - y_real)**2)
+    mse = np.mean((y_pred - y_real)**2)
     return float(mse)
 
 def ce(y_real: npt.NDArray, y_pred: npt.NDArray) -> float:
