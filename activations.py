@@ -1,0 +1,95 @@
+import numpy as np
+import numpy.typing as npt
+
+class Activation():
+    """
+    Activation function constructor class.
+    - Construct an Activation object with given `choice` of the activation function.
+    - Use activation function by calling method `myActivation.function(x)` on `x`.
+    - `x` is expected to be of type numpy `NDArray`.
+
+    Attributes
+    ----------
+    `choice` : `str`, ["identity", "sigmoid", "tanh", "relu"], default = "identity"
+        The choice of the activation function to use.
+    """
+    _valid_choices = ["identity", "sigmoid", "tanh", "relu"]
+    
+    def __init__(self, choice = "identity"):
+        if choice not in self._valid_choices:
+            raise ValueError(f"Invalid activation choice '{choice}', choose from: {self._valid_choices}")
+        
+        self.choice = choice
+        self.function = self.identity
+        
+        if self.choice == "sigmoid":
+            self.function = self.sigmoid
+        elif self.choice == "tanh":
+            self.function = self.tanh
+        elif self.choice == "relu":
+            self.function = self.relu
+
+    
+    def identity(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Performs identity activation on provided input.
+
+        Parameters
+        ----------
+        `x` : `NDArray`
+            Provided input.
+        
+        Returns
+        -------
+        `NDArray`
+            Activation output.
+        """
+        return x
+    
+    def sigmoid(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Performs sigmoid activation on provided input.
+
+        Parameters
+        ----------
+        `x` : `NDArray`
+            Provided input.
+        
+        Returns
+        -------
+        `NDArray`
+            Activation output.
+        """
+        return 1.0/(1.0 + np.exp(-x))
+
+    def tanh(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Performs tanh activation on provided input.
+
+        Parameters
+        ----------
+        `x` : `NDArray`
+            Provided input.
+        
+        Returns
+        -------
+        `NDArray`
+            Activation output.
+        """
+        return np.tanh(x)
+
+    def relu(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Performs ReLU activation on provided input.
+
+        Parameters
+        ----------
+        `x` : `NDArray`
+            Provided input.
+        
+        Returns
+        -------
+        `NDArray`
+            Activation output.
+        """
+        return np.maximum(0, x)
