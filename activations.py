@@ -10,10 +10,10 @@ class Activation():
 
     Attributes
     ----------
-    `choice` : `str`, ["identity", "sigmoid", "tanh", "relu"], default = "identity"
+    `choice` : `str`, ["identity", "sigmoid", "tanh", "relu", "softmax"], default = "identity"
         The choice of the activation function to use.
     """
-    _valid_choices = ["identity", "sigmoid", "tanh", "relu"]
+    _valid_choices = ["identity", "sigmoid", "tanh", "relu", "softmax"]
     
     def __init__(self, choice = "identity"):
         if choice not in self._valid_choices:
@@ -28,6 +28,8 @@ class Activation():
             self.function = self.tanh
         elif self.choice == "relu":
             self.function = self.relu
+        elif self.choice == "softmax":
+            self.function = self.softmax
 
     
     def identity(self, x: npt.NDArray) -> npt.NDArray:
@@ -93,3 +95,24 @@ class Activation():
             Activation output.
         """
         return np.maximum(0, x)
+    
+    def softmax(self, x: npt.NDArray) -> npt.NDArray:
+        """
+        Performs softmax activation on provided input.
+
+        Utilises log-sum-exp trick to prevent overflow due to large exponents.
+
+        Parameters
+        ----------
+        `x` : `NDArray`
+            Provided input.
+        
+        Returns
+        -------
+        `NDArray`
+            Activation output.
+        """
+        x_max = np.max(x)
+        exp_x = np.exp(x - x_max)
+
+        return exp_x/np.sum(exp_x)

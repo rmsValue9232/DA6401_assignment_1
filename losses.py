@@ -18,6 +18,8 @@ def mse(y_real: npt.NDArray, y_pred: npt.NDArray) -> float:
 def ce(y_real: npt.NDArray, y_pred: npt.NDArray) -> float:
     """
     Evaluates cross entropy for provided actual response distribution vs predicted response distribution.
+    
+    Clips the values from interval [0, 1] to [e, 1-e] where e = `1e-12` to prevent log(0) expression.
 
     Args:
         y_real (NDArray): Actual response distribution
