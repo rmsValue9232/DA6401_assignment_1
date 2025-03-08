@@ -28,8 +28,8 @@ def ce(y_real: npt.NDArray, y_pred: npt.NDArray) -> float:
     Returns:
         ce (float): The cross entropy between the two distributions
     """
-    assert (np.min(y_real) >= 0.0 and np.max(y_real)<=1.0 and np.sum(y_real) == 1.0), "y_real is not a valid probability distribution"
-    assert (np.min(y_pred) >= 0.0 and np.max(y_pred)<=1.0 and np.sum(y_pred) == 1.0), "y_pred is not a valid probability distribution"
+    assert (np.min(y_real) >= 0.0 and np.max(y_real)<=1.0 and abs(np.sum(y_real) - 1.0) <= 1e-12), "y_real is not a valid probability distribution"
+    assert (np.min(y_pred) >= 0.0 and np.max(y_pred)<=1.0 and abs(np.sum(y_pred) - 1.0) <= 1e-12), "y_pred is not a valid probability distribution"
 
     # avoids getting log(0.0) in calculations
     y_pred = np.clip(y_pred, 1e-12, 1.0 - 1e-12)
