@@ -17,19 +17,19 @@ class Activation():
     
     def __init__(self, choice = "identity"):
         if choice not in self._valid_choices:
-            raise ValueError(f"Invalid activation choice '{choice}', choose from: {self._valid_choices}")
+            raise ValueError(f"Invalid activation choice '{choice}', choose from: {self._valid_choices}, {len(self._valid_choices)}")
         
         self.choice = choice
         self.function = self.identity
         
-        if self.choice == "sigmoid":
+        if self.choice == "softmax":
+            self.function = self.softmax
+        elif self.choice == "sigmoid":
             self.function = self.sigmoid
         elif self.choice == "tanh":
             self.function = self.tanh
         elif self.choice == "relu":
             self.function = self.relu
-        elif self.choice == "softmax":
-            self.function = self.softmax
 
     
     def identity(self, x: npt.NDArray) -> npt.NDArray:
