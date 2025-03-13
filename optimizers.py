@@ -8,11 +8,10 @@ class Optimizer():
             raise ValueError(f"Unknown optimizer type: {type}, choose from: {self._optimizer_choices}")
         
         # Initiate theta_0
-        self.theta = np.copy(theta) if isinstance(theta, np.ndarray) else float(theta)
+        self.theta = theta
         self.type = type
         self.learning_rate = learning_rate
         self.extra_params = kwargs
-        print(self.extra_params)
 
         # Initiate v_0 = 0
         self.v = np.zeros_like(self.theta) if isinstance(self.theta, np.ndarray) else 0.0

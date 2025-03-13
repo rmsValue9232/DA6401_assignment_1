@@ -21,15 +21,19 @@ class Activation():
         
         self.choice = choice
         self.function = self.identity
+        self.grad = self.identity_grad
         
         if self.choice == "softmax":
             self.function = self.softmax
         elif self.choice == "sigmoid":
             self.function = self.sigmoid
+            self.grad = self.sigmoid_grad
         elif self.choice == "tanh":
             self.function = self.tanh
+            self.grad = self.tanh_grad
         elif self.choice == "relu":
             self.function = self.relu
+            self.grad = self.relu_grad
 
     
     def identity(self, x: float | npt.NDArray) -> float | npt.NDArray:
@@ -62,7 +66,9 @@ class Activation():
         `float | NDArray`
             Activation output.
         """
-        return 1.0/(1.0 + np.exp(-x))
+        return np.where(x>=0,
+                        1.0/(1.0 + np.exp(-x)),
+                        np.exp(x)/(1.0 + np.exp(x)))
 
     def tanh(self, x: float | npt.NDArray) -> float | npt.NDArray:
         """
