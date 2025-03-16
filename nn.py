@@ -244,9 +244,9 @@ class NeuralNetwork:
                         # Reset the total dW and db for next batch
                         total_db_list[l] *= 0.0
                         total_dW_list[l] *= 0.0
-            print(f"Epoch {epoch+1}, Loss = {total_loss}")
-            # if epoch % 10 == 0:
-            #     print(f"Epoch {epoch+1}, Loss = {total_loss}")
+            
+            if (epoch+1) % 10 == 0:
+                print(f"Epoch {epoch+1}, Loss = {total_loss}")
                         
 
 
