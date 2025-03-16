@@ -191,7 +191,7 @@ class NeuralNetwork:
         
         return (dW_list, db_list)
     
-    def train(self, X_train: npt.NDArray, Y_train:npt.NDArray, batch_size = 10, epochs=100):
+    def train(self, X_train: npt.NDArray, Y_train:npt.NDArray, batch_size = 1, epochs=2):
         # Expect X_train.shape[0] = Y_train.shape[0] to be the number of examples
 
         for epoch in range(epochs):
@@ -248,8 +248,9 @@ class NeuralNetwork:
                         total_db_list[l] *= 0.0
                         total_dW_list[l] *= 0.0
             
-            if (epoch+1) % 10 == 0:
-                print(f"Epoch {epoch+1}, Loss = {total_loss}")
+            # Need to judge model on a loss per example basis
+            total_loss /= Y_train.shape[0]
+            print(f"Epoch {epoch+1}, Loss = {total_loss}")
                         
 
 
