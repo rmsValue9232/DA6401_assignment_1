@@ -105,9 +105,10 @@ class NeuralNetwork:
     `activations`: `list`, default = None
         A list of activation function name strings to use for all the activation layers (hidden + output)
     """
-    def __init__(self, weight_init = "random", layer_sizes: list = None, activations:list = None, optimizer = "sgd", learning_rate = 0.001, **kwargs):
+    def __init__(self, weight_init = "random", layer_sizes: list = None, activations:list = None, optimizer = "sgd", learning_rate = 0.001, weight_decay = 0.0, **kwargs):
         self.opt_name = optimizer
         self.lr = learning_rate
+        self.wd = weight_decay
         self.optimizer_params = kwargs
         self.weight_init = weight_init
         self.layers = []
@@ -209,10 +210,12 @@ class NeuralNetwork:
                 total_dW_list.append(np.zeros_like(layer.W))
                 W_optimizers.append(Optimizer(theta=layer.W,
                                               learning_rate=self.lr,
+                                              weight_decay=self.wd,
                                               type=self.opt_name,
                                               **self.optimizer_params))
                 b_optimizers.append(Optimizer(theta=layer.b,
                                               learning_rate=self.lr,
+                                              weight_decay=self.wd,
                                               type=self.opt_name,
                                               **self.optimizer_params))
             

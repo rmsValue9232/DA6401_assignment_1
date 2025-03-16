@@ -3,7 +3,7 @@ import numpy.typing as npt
 
 class Optimizer():
     _optimizer_choices = ["sgd", "momentum", "nag", "rmsprop", "adam", "nadam"]
-    def __init__(self, theta: float | npt.NDArray, learning_rate: float, type="sgd", **kwargs):
+    def __init__(self, theta: float | npt.NDArray, learning_rate: float, weight_decay = 0.0, type="sgd", **kwargs):
         if type not in self._optimizer_choices:
             raise ValueError(f"Unknown optimizer type: {type}, choose from: {self._optimizer_choices}")
         
@@ -11,6 +11,7 @@ class Optimizer():
         self.theta = theta
         self.type = type
         self.learning_rate = learning_rate
+        self.weight_decay = weight_decay
         self.extra_params = kwargs
 
         # Initiate v_0 = 0
@@ -21,9 +22,12 @@ class Optimizer():
         self.m = np.zeros_like(self.theta) if isinstance(self.theta, np.ndarray) else 0.0
         
     def update(self, dTheta: float | npt.NDArray):
+        # Update memory of the steps the optimizer has taken
         self.t += 1
+
+        # Run the step based on optimizer type choice has been given
         if self.type == "sgd":
-            self.theta -= self.learning_rate * dTheta
+            self.theta -= ((self.learning_rate * dTheta) + (self.learning_rate * self.weight_decay * self.theta))
             
         elif self.type == "momentum":
             assert "beta" in self.extra_params.keys(), (f"Argument beta not supplied for optimizer with provided optimizer type as momentum.")
@@ -33,7 +37,7 @@ class Optimizer():
             
             self.v = (beta * self.v) - (self.learning_rate * dTheta)
 
-            self.theta += self.v
+            self.theta += (self.v - (self.learning_rate * self.weight_decay * self.theta))
 
         elif self.type == "nag":
             assert "beta" in self.extra_params.keys(), (f"Argument beta not supplied for optimizer with provided optimizer type as NAG.")
@@ -43,7 +47,7 @@ class Optimizer():
 
             self.v = (beta * self.v) - (self.learning_rate * dTheta)
 
-            self.theta += (beta * self.v) - (self.learning_rate * self.theta)
+            self.theta += ((beta * self.v) - (self.learning_rate * self.theta) - (self.learning_rate * self.weight_decay * self.theta))
         
         elif self.type == "rmsprop":
             assert "beta" in self.extra_params.keys(), (f"Argument beta not supplied for optimizer with provided optimizer type as RMSprop.")
@@ -55,7 +59,7 @@ class Optimizer():
 
             self.v = (beta * self.v) + ((1-beta) * dTheta**2)
             effective_lr = self.learning_rate/np.sqrt(self.v + epsilon)
-            self.theta -= effective_lr * dTheta
+            self.theta -= ((effective_lr * dTheta) + (self.learning_rate * self.weight_decay * self.theta))
 
         elif self.type == "adam":
             assert "beta1" in self.extra_params.keys(), (f"Argument beta1 not supplied for optimizer with provided optimizer type as adam.")
@@ -74,7 +78,7 @@ class Optimizer():
             m_hat = self.m/(1 - beta1**self.t)
             v_hat = self.v/(1 - beta2**self.t)
             effective_lr = self.learning_rate/(epsilon + np.sqrt(v_hat))
-            self.theta -= effective_lr * m_hat
+            self.theta -= ((effective_lr * m_hat) + (self.learning_rate * self.weight_decay * self.theta))
 
         elif self.type == "nadam":
             assert "beta1" in self.extra_params.keys(), (f"Argument beta1 not supplied for optimizer with provided optimizer type as Nadam.")
@@ -95,5 +99,5 @@ class Optimizer():
 
             effective_lr = self.learning_rate/(epsilon + np.sqrt(v_hat))
 
-            self.theta -= effective_lr * ( (beta1*self.m) + (dTheta * (1 - beta1)/(1 - beta1**self.t)) )
+            self.theta -= ((effective_lr * ( (beta1*self.m) + (dTheta * (1 - beta1)/(1 - beta1**self.t)) )) + (self.learning_rate * self.weight_decay * self.theta))
 
