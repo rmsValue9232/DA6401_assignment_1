@@ -47,3 +47,24 @@ def train_valid_split(x, y, train_percent=0.9):
     y_train, y_valid = y[:train_size], y[train_size:]
 
     return (x_train, y_train), (x_valid, y_valid)
+
+def confusion_labels(y_pred: npt.NDArray, y_real: npt.NDArray):
+    assert (y_pred.shape == y_real.shape), "Shape of y_pred and y_real does not match."
+
+    assert (y_pred.ndim == 2), "Not a valid prediction column vector of probabilities."
+
+    y_pred = np.int8((y_pred == np.max(y_pred)))
+    pred_label = np.argwhere(y_pred == 1)[0][0]
+    real_label = np.argwhere(y_real == 1)[0][0]
+
+    return (pred_label, real_label)
+
+def accuracy(confusion_matrix: npt.NDArray):
+    dims = confusion_matrix.ndim
+    shap = confusion_matrix.shape
+    assert (dims == 2), "Input is not a 2-dim matrix."
+    assert (shap[0] == shap[1]), "Input is not a square matrix"
+    total_examples = np.sum(confusion_matrix)
+    correct_examples = np.sum(np.diag(confusion_matrix))
+
+    return float(correct_examples)/float(total_examples)
