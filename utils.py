@@ -1,5 +1,6 @@
 import numpy as np
 import numpy.typing as npt
+from keras.datasets import fashion_mnist, mnist
 
 def one_hot_encoder(y_label_batch: npt.NDArray):
     """
@@ -68,3 +69,23 @@ def accuracy(confusion_matrix: npt.NDArray):
     correct_examples = np.sum(np.diag(confusion_matrix))
 
     return float(correct_examples)/float(total_examples)
+
+def load_data(name: str):
+    # Choose the data to load based on config
+    if name == "fashion_mnist":
+        data_module = fashion_mnist
+    elif name == "mnist":
+        data_module = mnist
+    
+    # Load the data: train test split done automatically
+    (x_train, y_train), (x_test, y_test) = data_module.load_data()
+    print("Loaded the train and test data.")
+    # reserve small portion of train set for validation
+    (x_train, y_train), (x_valid, y_valid) = train_valid_split(x_train, y_train, train_percent=0.9)
+    print("Perfomed train validation split.")
+
+    print(f"x_train.shape = {x_train.shape},\ty_train.shape = {y_train.shape}")
+    print(f"x_valid.shape = {x_valid.shape},\t\ty_valid.shape = {y_valid.shape}")
+    print(f"x_test.shape = {x_test.shape},\t\ty_test.shape = {y_test.shape}")
+
+    return (x_train, y_train), (x_valid, y_valid), (x_test, y_test)

@@ -192,97 +192,184 @@ class NeuralNetwork:
         
         return (dW_list, db_list)
     
-    def train(self, X_train: npt.NDArray, Y_train:npt.NDArray, X_valid:npt.NDArray, Y_valid:npt.NDArray, batch_size = 1, epochs=2):
-        # Expect X_train.shape[0] = Y_train.shape[0] to be the number of examples
+    def initialize(self, X_train: npt.NDArray, Y_train: npt.NDArray, batch_size = 1):
+        assert (X_train.shape[0] == Y_train.shape[0]), "Number of training examples does not match with number of provided labels."
+        self.X_train = X_train
+        self.Y_train = Y_train
+        self.batch_size = batch_size
 
-        for epoch in range(epochs):
-            num_examples_seen = 0
-            total_train_loss = 0
-            L = 0
-            total_db_list = deque()
-            total_dW_list = deque()
-            W_optimizers = deque()
-            b_optimizers = deque()
+        self.W_optimizers = deque()
+        self.b_optimizers = deque()
+
+        for layer in self.layers:
+            self.W_optimizers.append(Optimizer(theta=layer.W, learning_rate=self.lr,
+                                               weight_decay=self.wd, type=self.opt_name,
+                                               **self.optimizer_params))
+            self.b_optimizers.append(Optimizer(theta=layer.b, learning_rate=self.lr,
+                                               weight_decay=self.wd, type=self.opt_name,
+                                               **self.optimizer_params))
+        
+        print("Setup training data and initialized optimizers for the model.")
+
+    def evaluate(self, X_valid: npt.NDArray, Y_valid: npt.NDArray):
+        K = Y_valid.shape[1] # Number of classes
+        
+        total_valid_loss = 0
+        cf_valid = np.zeros(shape=(K,K), dtype=np.int_) # Confusion matrix
+
+        for x_valid, y_real_valid in zip(X_valid, Y_valid):
+            # Do forward pass
+            y_pred_valid = self.forward(x_valid)
+            # Accumulate this validation examples loss
+            total_valid_loss += losses.ce(y_real_valid, y_pred_valid)
+            # Update the confusion matrix
+            valid_pred_label, valid_real_label = confusion_labels(y_pred_valid, y_real_valid)
+            cf_valid[valid_pred_label][valid_real_label] += 1
+        
+        valid_acc = accuracy(cf_valid) # Evaluate validation accuracy based on confusion matrix
+        total_valid_loss /= Y_valid.shape[0] # Need to judge model on a loss per example basis
+
+        print(f"valid_loss = {total_valid_loss:.5f}\tvalid_acc = {valid_acc:.5f}")
+        return total_valid_loss, valid_acc, cf_valid
+
+    def training_step(self):
+        num_examples_seen = 0
+        total_train_loss = 0
+        L = 0
+        total_db_list = deque()
+        total_dW_list = deque()
+        
+        K = self.Y_train.shape[1] # Number of classes
+        # Confusion matrix to be built over this epoch
+        cf_train = np.zeros(shape=(K,K), dtype=np.int_)
+
+        # Initialize the total parameter change variables
+        for layer in self.layers:
+            L += 1
+            total_db_list.append(np.zeros_like(layer.b))
+            total_dW_list.append(np.zeros_like(layer.W))
+        
+        # Pass over the training data once
+        for x, y_real in zip(self.X_train, self.Y_train):
+            # Forward pass to find y_pred
+            y_pred = self.forward(x)
+            assert (y_real.shape == y_pred.shape), "The training could not start as the prediction shape does not match true output."
+
+            # Accumulate this example's loss
+            total_train_loss += losses.ce(y_real, y_pred)
+
+            pred_label, real_label = confusion_labels(y_pred=y_pred, y_real=y_real)
+            cf_train[pred_label][real_label] += 1
+
+            # Backpropagate to find dW and db for all layers for current example
+            curr_dW_list, curr_db_list = self.backward(y_real, y_pred)
+
+            # Accumulate this into total dW and db per batch
+            for l in range(L):
+                total_db_list[l] += curr_db_list[l]
+                total_dW_list[l] += curr_dW_list[l]
             
-            K = Y_train.shape[1] # Number of classes
+            num_examples_seen += 1
 
-            # Confusion matrix to be built over this epoch
-            cf_train = np.zeros(shape=(K,K), dtype=np.int_)
-
-            # Used for validation:
-            total_valid_loss = 0
-            cf_valid = np.zeros(shape=(K,K), dtype=np.int_)
-
-            # Initialize the total parameter change variables
-            for layer in self.layers:
-                L += 1
-                total_db_list.append(np.zeros_like(layer.b))
-                total_dW_list.append(np.zeros_like(layer.W))
-                W_optimizers.append(Optimizer(theta=layer.W,
-                                              learning_rate=self.lr,
-                                              weight_decay=self.wd,
-                                              type=self.opt_name,
-                                              **self.optimizer_params))
-                b_optimizers.append(Optimizer(theta=layer.b,
-                                              learning_rate=self.lr,
-                                              weight_decay=self.wd,
-                                              type=self.opt_name,
-                                              **self.optimizer_params))
-            
-            # Pass over the training data once
-            for x, y_real in zip(X_train, Y_train):
-                # Forward pass to find y_pred
-                y_pred = self.forward(x)
-                assert (y_real.shape == y_pred.shape), "The training could not start as the prediction shape does not match true output."
-
-                # Accumulate this example's loss
-                total_train_loss += losses.ce(y_real, y_pred)
-
-                pred_label, real_label = confusion_labels(y_pred=y_pred, y_real=y_real)
-                cf_train[pred_label][real_label] += 1
-
-                # Backpropagate to find dW and db for all layers for current example
-                curr_dW_list, curr_db_list = self.backward(y_real, y_pred)
-
-                # Accumulate this into total dW and db per batch
+            # If a batch of examples worth dW and db has been accumulated, take an optimization step
+            if num_examples_seen%self.batch_size == 0:
+                # Take a optimization step
                 for l in range(L):
-                    total_db_list[l] += curr_db_list[l]
-                    total_dW_list[l] += curr_dW_list[l]
-                
-                num_examples_seen += 1
+                    self.b_optimizers[l].update(total_db_list[l])
+                    self.W_optimizers[l].update(total_dW_list[l])
+                    # Reset the total dW and db for next batch
+                    total_db_list[l] *= 0.0
+                    total_dW_list[l] *= 0.0
 
-                # If a batch of example worth dW and db has been accumulated, take an optimization step
-                if num_examples_seen%batch_size == 0:
-                    # Take a optimization step
-                    for l in range(L):
-                        b_optimizers[l].update(total_db_list[l])
-                        W_optimizers[l].update(total_dW_list[l])
-                        # Reset the total dW and db for next batch
-                        total_db_list[l] *= 0.0
-                        total_dW_list[l] *= 0.0
+        train_acc = accuracy(cf_train) # Evaluate training accuracy from confusion matrix
+        total_train_loss /= self.Y_train.shape[0] # Need to judge model on a loss per example basis
+
+        print(f"train_loss = {total_train_loss:.5f}\ttrain_acc = {train_acc:.5f}")
+        return total_train_loss, train_acc, cf_train
+
+    # def train(self, X_train: npt.NDArray, Y_train:npt.NDArray, X_valid:npt.NDArray, Y_valid:npt.NDArray, batch_size = 1, epochs=2):
+    #     # Expect X_train.shape[0] = Y_train.shape[0] to be the number of examples
+
+    #     for epoch in range(epochs):
+    #         num_examples_seen = 0
+    #         total_train_loss = 0
+    #         L = 0
+    #         total_db_list = deque()
+    #         total_dW_list = deque()
+    #         W_optimizers = deque()
+    #         b_optimizers = deque()
             
-            # After updating the weights, in the current epoch evaluate training loss and acc
-            for x_valid, y_real_valid in zip(X_valid, Y_valid):
-                # Do forward pass
-                y_pred_valid = self.forward(x_valid)
-                # Accumulate this validation examples loss
-                total_valid_loss += losses.ce(y_real_valid, y_pred_valid)
-                # Update the validation data based confusion matrix
-                valid_pred_label, valid_real_label = confusion_labels(y_pred_valid, y_real_valid)
-                cf_valid[valid_pred_label][valid_real_label] += 1
+    #         K = Y_train.shape[1] # Number of classes
 
-            train_acc = accuracy(cf_train)
-            # Need to judge model on a loss per example basis
-            total_train_loss /= Y_train.shape[0]
+    #         # Confusion matrix to be built over this epoch
+    #         cf_train = np.zeros(shape=(K,K), dtype=np.int_)
 
-            valid_acc = accuracy(cf_valid)
-            total_valid_loss /= Y_valid.shape[0]
-            print(f"Epoch {epoch+1}:\ttrain_loss = {total_train_loss:.5f}\ttrain_acc = {train_acc:.5f}\tvalid_loss = {total_valid_loss:.5f}\tvalid_acc = {valid_acc:.5f}")
-                        
+    #         # Used for validation:
+    #         total_valid_loss = 0
+    #         cf_valid = np.zeros(shape=(K,K), dtype=np.int_)
 
-
-
-                
+    #         # Initialize the total parameter change variables
+    #         for layer in self.layers:
+    #             L += 1
+    #             total_db_list.append(np.zeros_like(layer.b))
+    #             total_dW_list.append(np.zeros_like(layer.W))
+    #             W_optimizers.append(Optimizer(theta=layer.W,
+    #                                           learning_rate=self.lr,
+    #                                           weight_decay=self.wd,
+    #                                           type=self.opt_name,
+    #                                           **self.optimizer_params))
+    #             b_optimizers.append(Optimizer(theta=layer.b,
+    #                                           learning_rate=self.lr,
+    #                                           weight_decay=self.wd,
+    #                                           type=self.opt_name,
+    #                                           **self.optimizer_params))
             
-                
+    #         # Pass over the training data once
+    #         for x, y_real in zip(X_train, Y_train):
+    #             # Forward pass to find y_pred
+    #             y_pred = self.forward(x)
+    #             assert (y_real.shape == y_pred.shape), "The training could not start as the prediction shape does not match true output."
 
+    #             # Accumulate this example's loss
+    #             total_train_loss += losses.ce(y_real, y_pred)
+
+    #             pred_label, real_label = confusion_labels(y_pred=y_pred, y_real=y_real)
+    #             cf_train[pred_label][real_label] += 1
+
+    #             # Backpropagate to find dW and db for all layers for current example
+    #             curr_dW_list, curr_db_list = self.backward(y_real, y_pred)
+
+    #             # Accumulate this into total dW and db per batch
+    #             for l in range(L):
+    #                 total_db_list[l] += curr_db_list[l]
+    #                 total_dW_list[l] += curr_dW_list[l]
+                
+    #             num_examples_seen += 1
+
+    #             # If a batch of example worth dW and db has been accumulated, take an optimization step
+    #             if num_examples_seen%batch_size == 0:
+    #                 # Take a optimization step
+    #                 for l in range(L):
+    #                     b_optimizers[l].update(total_db_list[l])
+    #                     W_optimizers[l].update(total_dW_list[l])
+    #                     # Reset the total dW and db for next batch
+    #                     total_db_list[l] *= 0.0
+    #                     total_dW_list[l] *= 0.0
+            
+    #         # After updating the weights, in the current epoch evaluate training loss and acc
+    #         for x_valid, y_real_valid in zip(X_valid, Y_valid):
+    #             # Do forward pass
+    #             y_pred_valid = self.forward(x_valid)
+    #             # Accumulate this validation examples loss
+    #             total_valid_loss += losses.ce(y_real_valid, y_pred_valid)
+    #             # Update the validation data based confusion matrix
+    #             valid_pred_label, valid_real_label = confusion_labels(y_pred_valid, y_real_valid)
+    #             cf_valid[valid_pred_label][valid_real_label] += 1
+
+    #         train_acc = accuracy(cf_train)
+    #         # Need to judge model on a loss per example basis
+    #         total_train_loss /= Y_train.shape[0]
+
+    #         valid_acc = accuracy(cf_valid)
+    #         total_valid_loss /= Y_valid.shape[0]
+    #         print(f"Epoch {epoch+1}:\ttrain_loss = {total_train_loss:.5f}\ttrain_acc = {train_acc:.5f}\tvalid_loss = {total_valid_loss:.5f}\tvalid_acc = {valid_acc:.5f}")
