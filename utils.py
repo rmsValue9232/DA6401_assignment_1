@@ -89,3 +89,12 @@ def load_data(name: str):
     print(f"x_test.shape = {x_test.shape},\t\ty_test.shape = {y_test.shape}")
 
     return (x_train, y_train), (x_valid, y_valid), (x_test, y_test)
+
+def standardScale(X: npt.NDArray):
+    """
+    - Scales the dataset to mean 0 and standard deviation 1 across the datapoints/examples.
+    - Expects first dimension of `X` to be the number of examples:
+    - That is, `X.shape` is *`(N, d1, d2, ...)`*.
+    - Where, *`(d1, d2, ...)`* is the shape of each example.
+    """
+    return (X - np.mean(X, axis=0, keepdims=True))/np.std(X, axis=0, keepdims=True)
